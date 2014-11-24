@@ -4,6 +4,7 @@
 {
   package NagiosParse;
   use base "HTML::Parser";
+  use URI::Escape;
 
   # -- Init vars.
   my $capture = 0;
@@ -48,7 +49,8 @@
     if ($tag eq 'a'){
         if ($origtext =~ "extinfo\.cgi(.*)&host=(.*)&service=(.*)\'>"){
             $wrk_host = $2;
-            $wrk_serv = $3; # probably don't need this 
+            $wrk_serv = uri_unescape($3);
+            $wrk_serv =~ tr{\+}{\ }d;
             $wrk_prio = 'low';
         }
     }
@@ -86,7 +88,7 @@
                    @{$self->{data}}, 
                    { 
                      "hostname" => $wrk_host, 
-                     "data" => $text,
+                     "data" => $wrk_serv . ' - ' . $text,
                      "prio" => $wrk_prio,
                      "age" => 0
                    }
