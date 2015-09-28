@@ -10,5 +10,5 @@ Homepage: http://github.com/rtsurik/cmonk
 
 Package: cmonk
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, libcurses-perl (>=1.28), libjson-rpc-perl (>=0.96), libterm-readkey-perl (>=2.30), liblwp-protocol-https-perl (>=6.02), libhtml-parser-perl(>=3.69)
+Depends: ${shlibs:Depends}, ${misc:Depends}, libcurses-perl (>=1.28), libjson-rpc-perl (>=1.06), libterm-readkey-perl (>=2.30), liblwp-protocol-https-perl (>=6.02), libhtml-parser-perl(>=3.69)
 Description: A simple ncurses-based frontend for Zabbix, Nagios, etc.

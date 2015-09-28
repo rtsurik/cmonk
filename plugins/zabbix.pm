@@ -4,7 +4,7 @@
 {
   package zabbix;
 
-  use JSON::RPC::Client;
+  use JSON::RPC::Legacy::Client;
   use Time::Seconds;
   use JSON;
 
@@ -19,7 +19,7 @@
   sub do_rpc_call {
     my ($uri, $req, $sslver) = @_;
 
-    my $client = new JSON::RPC::Client;
+    my $client = new JSON::RPC::Legacy::Client;
 
     # -- Disable SSL verification.
     if ($sslver eq "off") {
