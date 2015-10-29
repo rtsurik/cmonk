@@ -105,6 +105,7 @@
         select_hosts => "extend",
         sortfield => "lastchange",
         sortorder => "ASC",
+        expandData => 1,
         active => 1,
         "filter" => {
           "value" => "1",
@@ -140,8 +141,9 @@
 
     my @data = ();
     my $c = 0;
+
     foreach my $trigger (@{$triggers_data}) {
-      my $hostname = $trigger->{hosts}[0]->{host};
+      my $hostname = $trigger->{host};
       my $text_data = $trigger->{description};
   
       my $age_sec = (time - $trigger->{lastchange});
