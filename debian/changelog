@@ -1,3 +1,9 @@
+cmonk (20161102-1) unstable; urgency=low
+
+  * A quick and dirty fix, allow converting a non-reference into a json string.
+
+ -- Rustam Tsurik <rustam.tsurik@gmail.com>  Wed, 02 Nov 2016 18:28:13 +0300
+
 cmonk (20150928-1) unstable; urgency=low
 
   * A minor deb package dependencies fix.

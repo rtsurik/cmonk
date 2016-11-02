@@ -171,7 +171,7 @@
     my $request = new HTTP::Request('GET', $url);
     my $response = $myuseragent->request($request);
     
-    my $json = new JSON;
+    my $json = new JSON; $json->allow_nonref(1);
     my $json_text; 
 
     if (!$response->is_success) {

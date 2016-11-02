@@ -87,7 +87,7 @@
 
       if ($rpc_error == 1) {
          # Authentication error.
-         my $json = JSON->new();
+         my $json = JSON->new(); $json->allow_nonref(1);
          my $json_text = $json->encode({ "status" => "error", "errormsg" => "AUTH ERROR: $rpc_error_msg", "session" => "", "data" => "" });
          return $json_text;
       }
@@ -171,7 +171,7 @@
       $c++;
     }
 
-    my $json = JSON->new();
+    my $json = JSON->new(); $json->allow_nonref(1);
     my $json_text = $json->encode({ "status" => "ok", "session" => $authhash, "data" => \@data });
 
     # -- Log out.

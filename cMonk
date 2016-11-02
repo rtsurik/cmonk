@@ -43,7 +43,7 @@ sub mon_thread {
     # Get data from the plugin.
     my $plugin_type = $modconf->{'type'};
 
-    my $json = JSON->new();
+    my $json = JSON->new(); $json->allow_nonref(1);
     my $thread_data = $json->decode($last_data{$thread_id});
     my $sess = $thread_data->{'session'};
 
@@ -100,7 +100,7 @@ open ZCFG, $conf_path or die("Unable not open the config file: $!\n");
 my $json_str = join("", <ZCFG>); 
 close ZCFG;
 
-my $json = new JSON;
+my $json = new JSON; $json->allow_nonref(1);
 my $conf = $json->decode($json_str);
 
 # the list of loaded plugins
