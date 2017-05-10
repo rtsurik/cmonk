@@ -209,7 +209,9 @@ sub redraw_ui {
 		
 		if ($thread_data->{'status'} eq 'ok'){
 			my $count = 0;
-			foreach my $host (@{$thread_data->{'data'}}) {
+
+			# Sort by age - this needs to be configurable!
+			foreach my $host ( sort {$a->{'age'} <=> $b->{'age'}} @{$thread_data->{'data'}}) {
 				# Print the host info.
 				$cui->print_entry($host->{'hostname'}, $host->{'prio'}, $host->{'age'}, $host->{'data'});
 				$count++;
