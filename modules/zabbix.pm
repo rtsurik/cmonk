@@ -194,7 +194,7 @@
 
   # -- Register the plugin.
   # -- This is executed when module loads.
-  $main::plugins_list{'zabbix'} = \&get_data;
+  $main::modules_callbacks{'zabbix'} = \&get_data;
 }
 
 1;

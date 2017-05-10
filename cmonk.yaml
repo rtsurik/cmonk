@@ -1,0 +1,20 @@
+---
+modules:
+# my nagios
+  - name: Zabbix
+    position: 10
+    type: zabbix
+    api_url: https://zabbix-server/zabbix/api_jsonrpc.php
+    api_user: admin
+    api_pass: password
+    timeout: 30
+    verify_ssl: false
+# my zabbix
+  - name: Nagios
+    position: 20
+    type: nagios
+    api_url: http://nagios-server/nagios
+    api_user: admin
+    api_pass: admin
+    timeout: 30
+    verify_ssl: false

@@ -129,6 +129,7 @@
   use LWP::UserAgent;
   use JSON;
   use Encode;
+  use Data::Dumper;
 
   # -- nagios::get_data()
   # -- Retrieve the web page, parse it and return json code. 
@@ -161,11 +162,16 @@
 
     my $url = $conf->{'api_uri'} . "/cgi-bin/status.cgi?host=all&limit=0";
 
+    my $auth_realm = 'Nagios Access';
+    if (defined $conf->{'api_realm'}){
+      $auth_realm = $conf->{'api_realm'};
+    }
+
     $myuseragent->credentials($hostname . ":80", 
-      'Nagios Access' , $nag_usr => $nag_pwd);
+      $auth_realm , $nag_usr => $nag_pwd);
 
     $myuseragent->credentials($hostname . ":443",
-      'Nagios Access' , $nag_usr => $nag_pwd);
+      $auth_realm , $nag_usr => $nag_pwd);
 
 
     my $request = new HTTP::Request('GET', $url);
@@ -200,7 +206,7 @@
 
   # -- Register the plugin.
   # -- This is executed when module loads.
-  $main::plugins_list{'nagios'} = \&get_data;
+  $main::modules_callbacks{'nagios'} = \&get_data;
 }
 
 1;

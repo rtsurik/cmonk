@@ -1,224 +1,301 @@
 #!/usr/bin/perl
 
-# -- cMonk: Console Monitoring Kit
-# -- A simple ncurses-based frontend for Zabbix, Nagios, etc.
-# -- Copyright (C) 2013 - 2014 Rustam Tsurik
+#
+# CMonK - console monitoring kit 
+# A simple ncurses-based frontend for Zabbix, Nagios, etc.
+# Version 2.0.0, 2017-05-11
+# Copyright (C) 2013-2017 Rustam Tsurik
+# 
 
 use strict;
 use warnings;
+
+use Term::ANSIColor qw(:constants);  # Do we use this module?
+local $Term::ANSIColor::AUTORESET = 1;
+
 use threads;
 use threads::shared;
 use JSON;
 use Term::ReadKey;
-use File::Basename;
-use Time::HiRes qw(usleep nanosleep);
+use YAML::XS;
 use Env qw(HOME);
+use Time::HiRes qw(usleep nanosleep);
+use File::Basename;
+use Data::Dumper;
 
-# -- Some shared vars, used for talking to threads.
-my $ui_redraw :shared;
-my $do_shutdown :shared;
-my %last_data :shared;
+my $VERSION = '2.0.0';
 
-# -- Shared with plugins, contains handles to plugins subs.
-our %plugins_list = ();
+my $TICK_PERIOD = 100000;		# 100'000us = 10 ticks per second
+my $TICK_MAX = 10;				# Reset UI every 10 ticks
 
-# -- Handles for our threads & their names.
-my %threads_list = ();
+my $user_config;				# Loaded user config(.cmonk.yaml) as a Perl object
 
-$do_shutdown = 0;
-$ui_redraw = 0;
-%last_data = ();
+our %modules_callbacks = ();	# Shared with modules, contains the list of callbacks subs 
+my %running_threads = ();		# The list of running threads, includes names and handles
 
-# -- main::mon_thread()
-# -- The thread subroutine.
-sub mon_thread {
-  my ($thread_id, $modconf) = @_;
+my $do_ui_redraw :shared;		# Used to send the redraw signal from threads to the main process
+my $do_shutdown :shared;		# Used to tell the threads to exit the loop
+my %last_data :shared;			# Data received from the modules
 
-  local $SIG{'KILL'} = sub {
-    threads->exit(); 
-  };
+## start_thread() - The thread subroutine
+## arguments: TODO
 
-  # -- Enter thread loop.
-  while ($do_shutdown == 0) {
-    # Get data from the plugin.
-    my $plugin_type = $modconf->{'type'};
+sub start_thread {
 
-    my $json = JSON->new(); $json->allow_nonref(1);
-    my $thread_data = $json->decode($last_data{$thread_id});
-    my $sess = $thread_data->{'session'};
+	my ($thread_name, $module_config) = @_;
 
-    # Exec the plugin function.
-    my $plugin_json_output = $plugins_list{$plugin_type}->($modconf, $sess);
+	# Setup a handler for shutting down this thread
+	local $SIG{'KILL'} = sub {
+		threads->exit(); 
+	};
+	
+	# The default loop timeout is 60 seconds,
+	# but if we have a user-defined one, use it instead
+	my $loop_timeout = 60;
+	if (defined $module_config->{'timeout'}) {
+		$loop_timeout = $module_config->{'timeout'};
+	}
+	
+	# The module type, e.g. zabbix, nagios
+	my $module_type = $module_config->{'type'};
 
-    # Push JSON for this thread into the $last_data shared variable.
-    {
-      lock(%last_data);
-      $last_data{$thread_id} = $plugin_json_output;
-    };
+	# Enter the loop
+	while ($do_shutdown == 0) {
 
-    {
-      lock($ui_redraw);
-      $ui_redraw = 1;
-    };
-    # Sleep: configurable refresh time must be used here
-    sleep(60);
-  }
+		# Retrieve session data from the last data
+		my $json = JSON->new(); $json->allow_nonref(1);
+		my $thread_data = $json->decode($last_data{$thread_name});
+		my $sess = $thread_data->{'session'};
+
+		# Exec the callback function
+		# Send the complete module config and session data
+		my $plugin_json_output = $modules_callbacks{$module_type}->($module_config, $sess);
+
+		# Push new data for this thread into the shared variable.
+		{
+			lock(%last_data);
+			$last_data{$thread_name} = $plugin_json_output;
+		};
+
+		# Got new data, force UI redraw
+		{
+			lock($do_ui_redraw);
+			$do_ui_redraw = 1;
+		};
+
+		sleep($loop_timeout);
+	}
+
 }
 
-# -- main::cleanup_and_exit()
-# -- Wait for threads to stop, clean up, etc.
+## load_configs() - Loop through the list of dirs(.:$HOME:/etc), find and load the config
+## arguments: NONE
+
+sub load_configs {
+
+	my @CONFIG_DIRS = ('.', $HOME, '/etc');
+	my $user_config_path; 
+
+	foreach my $dir (@CONFIG_DIRS) {
+		$user_config_path = "$dir/.cmonk.yaml";
+		(-e $user_config_path) && last;
+	}
+
+	die "Couldn't find the config file!" unless (-e $user_config_path);
+	$user_config = YAML::XS::LoadFile( $user_config_path );
+
+	(defined $user_config->{'modules'}) or die("Config file parse error: the modules section not found");
+
+}
+
+## load_modules() - TODO
+## arguments: NONE
+
+sub load_modules {
+
+	my $modules = $user_config->{'modules'};
+	my %loaded_modules = ();
+
+	my $thread_id = 0;
+
+	foreach my $mod (@$modules) {
+		# Is it already loaded?
+		if (! defined $loaded_modules{$mod->{'type'}} ) {
+
+			# Nope, build the path to this module and attempt to load. 
+			my $new_module = "modules/" . $mod->{'type'} . ".pm";
+			eval { 
+				require $new_module; 
+			};
+		
+			# Check if it was actually loaded and register as such.
+			(defined $INC{$new_module}) or die("Unable to load the plugin for " . $mod->{'type'} ."\n");
+			$loaded_modules{$mod->{'type'}} = 1;
+		}
+
+		# Now spawn a thread for this module
+		# Build a name for this thread, e.g. 10-zabbix-2
+		my $thread_name = $mod->{'position'} . '-' . $mod->{'type'} . "-". $thread_id;
+
+		$running_threads{$thread_name} = {
+			"name" => $mod->{'name'},
+			"handle" => threads->create('start_thread', $thread_name, $mod),
+			"mod" =>  $mod,
+		};
+
+		# Init JSON data for this thread
+		#
+		# data => monitoring data
+		# session => auth/session data for this module
+		# status => ok/error
+		# errormsg => the message
+		$last_data{$thread_name} = '{"data":null,"session":"","status":"error","errormsg":"Waiting for data..."}'; 
+	} 
+
+}
+
 sub cleanup_and_exit {
-  my ($ui) = @_;
 
-  $ui->cleanup();
-  ReadMode('normal');
+	my ($cui) = @_;
+	$cui->cleanup();		# clean up UI
 
-  foreach my $thread_id (keys %threads_list) {
-    $threads_list{$thread_id}->{'handle'}->kill('KILL')->detach();
-  }
+	ReadMode('normal');
 
-  exit(0);
+	# It's likely that this var is already set to 1, but anyway.
+	$do_shutdown = 1;
+
+	# Now, shut down all threads by sending the KILL signal
+	foreach my $thread_name (keys %running_threads) {
+		$running_threads{$thread_name}->{'handle'}->kill('KILL')->detach();
+	}
+
+	exit(0);
 }
 
-# -- Search for cMonk.config file
-# -- Priority is: $HOME >> /etc >> ./
-my $conf_path = "";
-my @conf_dirs = ($HOME, "/etc", ".");
-foreach my $dir (@conf_dirs) {
-  my $test_path = $dir . "/cMonk.config";
-  if (($conf_path eq "") && (-e $test_path)) {
-    $conf_path = $test_path;
-  }
+sub setup_ui {
+
+	my ($cui) = @_;
+
+	ReadMode('cbreak');
+	$cui->prepare();
 }
 
-if ($conf_path eq "") {
-  die "Can't find the config file\n";
+sub check_keypress {
+
+	my $read_key = ReadKey(-1); # -1 == non-blocking read
+	if (defined $read_key) {
+		# Got 'Q' or 'q' : shut down the app.
+		if (($read_key eq 'q')|($read_key eq 'Q')) { 
+			$do_shutdown = 1; 
+		}
+		# Arrow keys : navigate.
+		# TODO
+	}
 }
 
-# -- Read the config file into a string and convert it to a Perl object.
-open ZCFG, $conf_path or die("Unable not open the config file: $!\n");
-my $json_str = join("", <ZCFG>); 
-close ZCFG;
+sub redraw_ui {
+	
+	my ($cui) = @_;
 
-my $json = new JSON; $json->allow_nonref(1);
-my $conf = $json->decode($json_str);
+	# Clear the window, draw borders, etc
+	$cui->start_cycle();
 
-# the list of loaded plugins
-my %loaded_plugins = ();
+	foreach my $thread_name (sort keys %last_data) {
+		# Print the thread name.
+		$cui->print_header($running_threads{$thread_name}->{'name'});
 
-# validate configuration
-# need a more verbose validation here, not just this crap
-(defined $conf->{'modules'}) or die("Config file parse error: the modules section not found");
+		my $json = new JSON; $json->allow_nonref(1);
+		my $thread_data = $json->decode($last_data{$thread_name});
+		
+		if ($thread_data->{'status'} eq 'ok'){
+			my $count = 0;
+			foreach my $host (@{$thread_data->{'data'}}) {
+				# Print the host info.
+				$cui->print_entry($host->{'hostname'}, $host->{'prio'}, $host->{'age'}, $host->{'data'});
+				$count++;
+			}
+			if ($count == 0) {
+				$cui->print_message("No issues detected.");
+			}
+		} else {
+			my $error_message = $thread_data->{'errormsg'};
+			$cui->print_message($error_message);
+		}
 
-my $mnum = 0; # will use this for thread ID
-my $mods = $conf->{'modules'}; # loop through the mods list
+		# Done with GUI, check threads health and restart if needed.
+		if (! $running_threads{$thread_name}->{'handle'}->is_running()) {
+			$cui->print_message("Thread is NOT running, restart attempted.");
 
-foreach my $mod (@$mods) { 
-  if (! defined $loaded_plugins{$mod->{'type'}} ) {
-    # try to load a plugin for this module
-    my $new_module = "plugins/" . $mod->{'type'} . ".pm";
-    eval { 
-       require $new_module; 
-    };
-    # check if it was actually loaded
-    (defined $INC{$new_module}) or die("Unable to load the plugin for " . $mod->{'type'} ."\n");
-    $loaded_plugins{$mod->{'type'}} = 1;
-  }
+			my $mod = $running_threads{$thread_name}->{'mod'};
+			$running_threads{$thread_name}->{'handle'} = threads->create('start_thread', $thread_name, $mod);
+		}
+	}
 
-  # spawn a thread for this module
-  $mnum++;
-  my $thread_id = $mod->{'position'} . '-' . $mod->{'type'} . "-". $mnum; # thread id is like "10-zabbix-2"
-  $threads_list{$thread_id} = {
-    "name" => $mod->{'name'},
-    "handle" => threads->create('mon_thread', $thread_id, $mod),
-    "mod" =>  $mod 
-  };
-  $last_data{$thread_id} = '{"data":null,"session":"","status":"error","errormsg":"Waiting for data..."}'; # init json data for this thread
+	# Refresh the window
+	$cui->finalize_cycle();
+
+	# Done with redrawing
+	{ 
+		lock($do_ui_redraw); 
+		$do_ui_redraw = 0; 
+	}
 }
 
-# -- Prepare UI.
-ReadMode('cbreak');
+## 
+## Let's go! Start the main thread.
+##
+
+# Init the variables
+$do_shutdown = 0;	# Global, shared var
+$do_ui_redraw = 0;	# Global, shared var
+
+# Load the configs and load the modules
+load_configs();
+load_modules();
+
+# Create a new UI object and call the setup_ui function
 my $cui = cMonkUI->new();
-$cui->prepare();
+setup_ui($cui);
 
-# -- A handler for interrupt signal(Ctl-C).
+# Set up a handler for the INT signal/Ctrl-C
 $SIG{'INT'} = sub { 
-  cleanup_and_exit($cui);
+	cleanup_and_exit($cui);
 };
 
-# -- Setup process name
-$0 = "cMonk::running";
+# Main loop tick counter
+my $tick = 1;
 
-# -- Curses UI loop.
-my $pulse = 1;
-
+# Enter the main loop
 while ($do_shutdown == 0) {
-  if ($ui_redraw == 1) {
-    # -- UI redraw requested from a plugin.
-    { lock($ui_redraw); $ui_redraw = 0; }
 
-    $cui->start_cycle();
+	# Check if any keys have been pressed
+	check_keypress();
 
-    foreach my $threadid (sort keys %last_data) {
-      # Print the thread name.
-      $cui->print_header($threads_list{$threadid}->{'name'});
+	# Redraw UI if we got new data or something
+	if ($do_ui_redraw == 1) {
+		redraw_ui($cui);
+	}
 
-      my $thread_data = $json->decode($last_data{$threadid});
-      if ($thread_data->{'status'} eq 'ok'){
-        my $count = 0;
-        foreach my $host (@{$thread_data->{'data'}}) {
+	usleep($TICK_PERIOD);
+	if ($tick == $TICK_MAX) {
+		$tick = 1;
 
-          # Print the host info.
-          $cui->print_entry($host->{'hostname'}, $host->{'prio'}, $host->{'age'}, $host->{'data'});
-          $count++;
-        }
-        if ($count == 0) {
-          $cui->print_message("No issues detected.");
-        }
-      } else {
-        my $error_message = $thread_data->{'errormsg'};
-        $cui->print_message($error_message);
-      }
-      # Done with GUI, check threads health and restart if needed.
-      if (! $threads_list{$threadid}->{'handle'}->is_running()) {
-        $cui->print_message("Thread is NOT running, restart attempted.");
-
-        my $mod = $threads_list{$threadid}->{'mod'};
-        $threads_list{$threadid}->{'handle'} = threads->create('mon_thread', $threadid, $mod);
-      }
-    }
-    $cui->finalize_cycle();
-  }
-
-  # -- Read keyboard input.
-  my $read_key = ReadKey(-1); # -1 == non-blocking read
-  if (defined $read_key) {
-    # -- Got 'Q' or 'q' : shut down the app.
-    if (($read_key eq 'q')|($read_key eq 'Q')) { $do_shutdown = 1; }
-    # -- Arrow keys : navigate.
-    # -- TODO
-  }
-
-  # -- Sleep for 100ms. Needs to be configurable? 
-  usleep(100000);
-
-  # -- Approximately 1 second.
-  if ($pulse == 10 ) {
-    $pulse = 1;
-    my $size_change = $cui->pulse();
-    if ( $size_change == 1 ) {
-      lock($ui_redraw); $ui_redraw = 1; 
-    }
-  }
-  $pulse++;
-
+		# cMonkUI->pulse() updates the progress bar and detects window resize
+		my $window_resized = $cui->pulse();
+		if ( $window_resized == 1 ) {
+			lock($do_ui_redraw); 
+			$do_ui_redraw = 1; 
+		}
+	}
+	$tick++;
 }
 
+# We are done, clean up and exit
 cleanup_and_exit($cui);
 
+# Load the UI module
 BEGIN {
-  my $dir = dirname(__FILE__);
-  push @INC, $dir; 
-  require cMonkUI;
+	my $dir = dirname(__FILE__);
+	push @INC, $dir; 
+	require cMonkUI;
 }
-# -- End here.
