@@ -1,20 +1,23 @@
 ---
 modules:
-# my nagios
+# my zabbix
   - name: Zabbix
     position: 10
     type: zabbix
-    api_url: https://zabbix-server/zabbix/api_jsonrpc.php
+    api_uri: https://zabbix-server/zabbix/api_jsonrpc.php
     api_user: admin
     api_pass: password
+    sort_order: name
     timeout: 30
     verify_ssl: false
-# my zabbix
+# my nagios
   - name: Nagios
     position: 20
     type: nagios
-    api_url: http://nagios-server/nagios
+    api_uri: http://nagios-server/nagios
+    api_realm: Nagios Core
     api_user: admin
     api_pass: admin
+    sort_order: age
     timeout: 30
     verify_ssl: false
