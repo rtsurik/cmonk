@@ -147,7 +147,7 @@ sub print_entry {
 		$ap =~ s/ days/d/;
 
 		# output the data
-		my $text = "$host - $data";
+		my $text = "$host - ($ap) - $data";
 
 		$self->color_ctl($prio, "on");
 		$self->{'window'}->addstr($self->{'y-pos'}, 1, substr($text, 0, $self->{'x-max'} - 2));

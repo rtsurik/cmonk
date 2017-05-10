@@ -74,6 +74,9 @@
         4 => sub {}, # here $text == last check, don't need this.
         5 => sub { 
                $text=~ s/^\s//; # <-- age, convert to seconds + adjust according to current time.
+               $text =~ s/[\sdhms]+/ /g;
+               my @duration_parts = split / /, $text;
+               $wrk_age =  $duration_parts[0]*86400 + $duration_parts[1]*3600 + $duration_parts[2]*60 + $duration_parts[3];
              },
         6 => sub {}, # here $text == attempt, don't need this.
         7 => sub { 
@@ -90,7 +93,7 @@
                      "hostname" => $wrk_host, 
                      "data" => $wrk_serv . ' - ' . $text,
                      "prio" => $wrk_prio,
-                     "age" => 0
+                     "age" => $wrk_age,
                    }
                  );
                  $self->{cnt} = ($c + 1);
