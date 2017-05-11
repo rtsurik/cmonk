@@ -35,6 +35,16 @@ sub prepare {
 	$win->addstr(1, 1, "Preparing data...");
 	$win->attroff(COLOR_PAIR(1));
 
+
+	$self->{'display_columns'} = $args{'display_columns'};
+
+	$self->{'version'} = $args{'version'};
+	$self->{'window'}->addstr(
+		$self->{'y-max'} - 1, 
+		1,
+		"v" . $self->{'version'} . " Sorted by " . $args{'sort_order'} . " "
+		);
+
 	$win->refresh();
 }
 
@@ -62,6 +72,12 @@ sub start_cycle {
 	$win->attron(COLOR_PAIR(3));
 	$win->box(0,0);
 	$win->attroff(COLOR_PAIR(3));
+
+	$self->{'window'}->addstr(
+		$self->{'y-max'} - 1, 
+		1,
+		"v" . $self->{'version'} . " Sorted by " . $args{'sort_order'} . " "
+		);
 }
 
 # -- cMonkUI::finalize_cycle()
@@ -146,8 +162,33 @@ sub print_entry {
 		$ap =~ s/ hours/hr/;
 		$ap =~ s/ days/d/;
 
+		my $text = "";
+		
+		my $col_counter = 1;
+		my $col_max = scalar @{$self->{'display_columns'}};
+		
 		# output the data
-		my $text = "$host - ($ap) - $data";
+		foreach $col (@{$self->{'display_columns'}}) {
+			if ($col eq 'hostname') {
+				#my $text = "$host - ($ap) - $data";
+				$text .= $host;
+			}
+			if ($col eq 'age') {
+				$text .= $ap;
+			}
+			if ($col eq 'data') {
+				$text .= $data;
+			}
+
+			# delimiter			
+			if ($col_counter++ < $col_max){
+				$text .= " | ";	
+			}
+
+			
+		}
+		
+#		$text = "$host - ($ap) - $data";
 
 		$self->color_ctl($prio, "on");
 		$self->{'window'}->addstr($self->{'y-pos'}, 1, substr($text, 0, $self->{'x-max'} - 2));

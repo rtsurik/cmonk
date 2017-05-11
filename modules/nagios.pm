@@ -163,7 +163,10 @@
     my($uri_scheme, $hostname, $uri_path) =
     $conf->{'api_uri'} =~ m|(https?://)([^/]*)(.*)|;
 
-    my $url = $conf->{'api_uri'} . "/cgi-bin/status.cgi?host=all&limit=0";
+    #my $url = $conf->{'api_uri'} . "/cgi-bin/status.cgi?host=all&limit=0";
+
+    # retrieve issues only
+    my $url = $conf->{'api_uri'} . '/cgi-bin/status.cgi?host=all&limit=0&servicestatustypes=28&hoststatustypes=15';
 
     my $auth_realm = 'Nagios Access';
     if (defined $conf->{'api_realm'}){

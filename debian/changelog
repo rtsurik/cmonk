@@ -1,3 +1,9 @@
+cmonk (20170511-1) unstable; urgency=low
+
+  * Refactoring, UI fixes
+
+ -- Rustam Tsurik <rustam.tsurik@gmail.com>  Thu, 11 May 2017 13:36:12 +0300
+
 cmonk (20161102-1) unstable; urgency=low
 
   * A quick and dirty fix, allow converting a non-reference into a json string.

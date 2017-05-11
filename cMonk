@@ -15,13 +15,13 @@ local $Term::ANSIColor::AUTORESET = 1;
 
 use threads;
 use threads::shared;
+use Switch;
 use JSON;
 use Term::ReadKey;
 use YAML::XS;
 use Env qw(HOME);
 use Time::HiRes qw(usleep nanosleep);
 use File::Basename;
-use Data::Dumper;
 
 my $VERSION = '2.0.0';
 
@@ -36,6 +36,8 @@ my %running_threads = ();		# The list of running threads, includes names and han
 my $do_ui_redraw :shared;		# Used to send the redraw signal from threads to the main process
 my $do_shutdown :shared;		# Used to tell the threads to exit the loop
 my %last_data :shared;			# Data received from the modules
+
+my $sort_order = 'age';			# Issues sort order, e.g. age or hostname
 
 ## start_thread() - The thread subroutine
 ## arguments: TODO
@@ -105,6 +107,11 @@ sub load_configs {
 	$user_config = YAML::XS::LoadFile( $user_config_path );
 
 	(defined $user_config->{'modules'}) or die("Config file parse error: the modules section not found");
+
+	# Default sort order is age, see at the top.
+	if (defined $user_config->{'gui'}->{'sort_order'}){
+		$sort_order = $user_config->{'gui'}->{'sort_order'};
+	}	
 
 }
 
@@ -176,20 +183,45 @@ sub setup_ui {
 
 	my ($cui) = @_;
 
+	my @display_columns = ['hostname', 'age', 'data'];
+	if (defined $user_config->{'gui'}->{'display_columns'}){
+		@display_columns = $user_config->{'gui'}->{'display_columns'};
+	}
+
 	ReadMode('cbreak');
-	$cui->prepare();
+	$cui->prepare(
+		version => $VERSION,
+		sort_order => $sort_order,
+		display_columns => @display_columns,
+		);
 }
 
 sub check_keypress {
 
 	my $read_key = ReadKey(-1); # -1 == non-blocking read
 	if (defined $read_key) {
-		# Got 'Q' or 'q' : shut down the app.
-		if (($read_key eq 'q')|($read_key eq 'Q')) { 
-			$do_shutdown = 1; 
+
+		switch ($read_key) {
+			case ["q", "Q"]	{
+				# Shutdown the app
+				$do_shutdown = 1;
+			}
+			case ["s", "S"]	{
+				# Change the sort order
+				if ($sort_order eq 'age'){
+					$sort_order = 'hostname';
+				} else {
+					$sort_order = 'age';
+				}
+
+				# and force redraw
+				{
+					lock $do_ui_redraw;
+					$do_ui_redraw = 1;
+				}
+			}
 		}
-		# Arrow keys : navigate.
-		# TODO
+
 	}
 }
 
@@ -198,7 +230,9 @@ sub redraw_ui {
 	my ($cui) = @_;
 
 	# Clear the window, draw borders, etc
-	$cui->start_cycle();
+	$cui->start_cycle(
+		sort_order => $sort_order,
+		);
 
 	foreach my $thread_name (sort keys %last_data) {
 		# Print the thread name.
@@ -210,8 +244,16 @@ sub redraw_ui {
 		if ($thread_data->{'status'} eq 'ok'){
 			my $count = 0;
 
-			# Sort by age - this needs to be configurable!
-			foreach my $host ( sort {$a->{'age'} <=> $b->{'age'}} @{$thread_data->{'data'}}) {
+			# Reorder data as per settings
+			my @sorted_thread_data = ();
+
+			if ($sort_order eq 'age'){
+				@sorted_thread_data = sort {$b->{'age'} <=> $a->{'age'}} @{$thread_data->{'data'}}
+			} else {
+				@sorted_thread_data = sort {$a->{'hostname'} cmp $b->{'hostname'}} @{$thread_data->{'data'}}
+			}
+
+			foreach my $host ( @sorted_thread_data ) {
 				# Print the host info.
 				$cui->print_entry($host->{'hostname'}, $host->{'prio'}, $host->{'age'}, $host->{'data'});
 				$count++;
