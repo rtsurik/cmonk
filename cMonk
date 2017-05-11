@@ -247,16 +247,19 @@ sub redraw_ui {
 			# Reorder data as per settings
 			my @sorted_thread_data = ();
 
-			if ($sort_order eq 'age'){
-				@sorted_thread_data = sort {$b->{'age'} <=> $a->{'age'}} @{$thread_data->{'data'}}
-			} else {
-				@sorted_thread_data = sort {$a->{'hostname'} cmp $b->{'hostname'}} @{$thread_data->{'data'}}
-			}
+			# won't sort if empty
+			if (scalar $thread_data->{'data'} > 0) {
+				if ($sort_order eq 'age'){
+					@sorted_thread_data = sort {$b->{'age'} <=> $a->{'age'}} @{$thread_data->{'data'}}
+				} else {
+					@sorted_thread_data = sort {$a->{'hostname'} cmp $b->{'hostname'}} @{$thread_data->{'data'}}
+				}
 
-			foreach my $host ( @sorted_thread_data ) {
-				# Print the host info.
-				$cui->print_entry($host->{'hostname'}, $host->{'prio'}, $host->{'age'}, $host->{'data'});
-				$count++;
+				foreach my $host ( @sorted_thread_data ) {
+					# Print the host info.
+					$cui->print_entry($host->{'hostname'}, $host->{'prio'}, $host->{'age'}, $host->{'data'});
+					$count++;
+				}
 			}
 			if ($count == 0) {
 				$cui->print_message("No issues detected.");
