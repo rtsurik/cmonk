@@ -3,7 +3,7 @@
 #
 # CMonK - console monitoring kit 
 # A simple ncurses-based frontend for Zabbix, Nagios, etc.
-# Version 2.0.0, 2017-05-11
+# Version 2.0.1, 2017-05-25
 # Copyright (C) 2013-2017 Rustam Tsurik
 # 
 
@@ -23,7 +23,7 @@ use Env qw(HOME);
 use Time::HiRes qw(usleep nanosleep);
 use File::Basename;
 
-my $VERSION = '2.0.0';
+my $VERSION = '2.0.1';
 
 my $TICK_PERIOD = 100000;		# 100'000us = 10 ticks per second
 my $TICK_MAX = 10;				# Reset UI every 10 ticks
@@ -140,23 +140,31 @@ sub load_modules {
 			$loaded_modules{$mod->{'type'}} = 1;
 		}
 
-		# Now spawn a thread for this module
-		# Build a name for this thread, e.g. 10-zabbix-2
-		my $thread_name = $mod->{'position'} . '-' . $mod->{'type'} . "-". $thread_id;
+		# Check whether this module is disabled in the config
+		my $mod_enabled = 1;
+		if (defined $mod->{'enabled'}){
+			if ($mod->{'enabled'} eq 'off') { $mod_enabled = 0; }
+		}
 
-		$running_threads{$thread_name} = {
-			"name" => $mod->{'name'},
-			"handle" => threads->create('start_thread', $thread_name, $mod),
-			"mod" =>  $mod,
-		};
+		if ($mod_enabled){
+			# Now spawn a thread for this module
+			# Build a name for this thread, e.g. 10-zabbix-2		
+			my $thread_name = $mod->{'position'} . '-' . $mod->{'type'} . "-". $thread_id;
 
-		# Init JSON data for this thread
-		#
-		# data => monitoring data
-		# session => auth/session data for this module
-		# status => ok/error
-		# errormsg => the message
-		$last_data{$thread_name} = '{"data":null,"session":"","status":"error","errormsg":"Waiting for data..."}'; 
+			$running_threads{$thread_name} = {
+				"name" => $mod->{'name'},
+				"handle" => threads->create('start_thread', $thread_name, $mod),
+				"mod" =>  $mod,
+			};
+
+			# Init JSON data for this thread
+			#
+			# data => monitoring data
+			# session => auth/session data for this module
+			# status => ok/error
+			# errormsg => the message
+			$last_data{$thread_name} = '{"data":null,"session":"","status":"error","errormsg":"Waiting for data..."}'; 
+		}
 	} 
 
 }

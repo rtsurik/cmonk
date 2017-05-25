@@ -1,3 +1,9 @@
+cmonk (20170525-1) unstable; urgency=low
+
+  * Added on/off switch for modules in the yaml config
+
+ -- Rustam Tsurik <rustam.tsurik@gmail.com>  Thu, 25 May 2017 13:05:41 +0300
+
 cmonk (20170511-1) unstable; urgency=low
 
   * Refactoring, UI fixes
