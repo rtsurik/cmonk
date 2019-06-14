@@ -72,8 +72,16 @@
   # -- zabbix::get_data
   # -- Return triggers with error.
   sub get_data {
-    my ($conf, $session) = @_;
+    my ($op, $conf, $session) = @_;
   
+    if ($op eq 'logout') {
+      return 1; 
+    }
+    
+    if ($op eq 'login') {
+      return '';
+    }
+
     my $uri = $conf->{"api_uri"};
     my $authhash;    
 

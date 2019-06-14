@@ -42,7 +42,7 @@ sub prepare {
 	$self->{'window'}->addstr(
 		$self->{'y-max'} - 1, 
 		1,
-		"v" . $self->{'version'} . " Sorted by " . $args{'sort_order'} . " "
+		"v" . $self->{'version'} . " | " . $args{'sort_order'} . " "
 		);
 
 	$win->refresh();
@@ -76,7 +76,7 @@ sub start_cycle {
 	$self->{'window'}->addstr(
 		$self->{'y-max'} - 1, 
 		1,
-		"v" . $self->{'version'} . " Sorted by " . $args{'sort_order'} . " "
+		"v" . $self->{'version'} . " | " . $args{'sort_order'} . " "
 		);
 }
 
@@ -103,7 +103,7 @@ sub pulse {
 	}
 
 	my $puchr = '/';
-	if ($self->{'pulse'} == 2 ) { $puchr = '—'; }
+	if ($self->{'pulse'} == 2 ) { $puchr = '-'; }
 	if ($self->{'pulse'} == 3 ) { $puchr = "\\"; $self->{'pulse'} = 0; }
 	$self->{'pulse'} += 1;
 

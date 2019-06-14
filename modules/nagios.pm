@@ -137,7 +137,16 @@
   # -- nagios::get_data()
   # -- Retrieve the web page, parse it and return json code. 
   sub get_data {
-    my ($conf, $session) = @_;
+    my ($op, $conf, $session) = @_;
+  
+    if ($op eq 'logout') {
+      return 1; 
+    }
+    
+    if ($op eq 'login') {
+      return '';
+    }
+
 
     $nag_usr = $conf->{'api_user'};
     $nag_pwd = $conf->{'api_pass'};

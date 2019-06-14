@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 
 #
-# CMonK - console monitoring kit 
+# cmonk - console monitoring kit 
 # A simple ncurses-based frontend for Zabbix, Nagios, etc.
 # Version 2.0.1, 2017-05-25
-# Copyright (C) 2013-2017 Rustam Tsurik
+# Copyright (C) 2013-2019 Rustam Tsurik
 # 
 
 use strict;
@@ -54,8 +54,8 @@ sub start_thread {
 	# The default loop timeout is 60 seconds,
 	# but if we have a user-defined one, use it instead
 	my $loop_timeout = 60;
-	if (defined $module_config->{'timeout'}) {
-		$loop_timeout = $module_config->{'timeout'};
+	if (defined $module_config->{'refresh'}) {
+		$loop_timeout = $module_config->{'refresh'};
 	}
 	
 	# The module type, e.g. zabbix, nagios
@@ -71,7 +71,7 @@ sub start_thread {
 
 		# Exec the callback function
 		# Send the complete module config and session data
-		my $plugin_json_output = $modules_callbacks{$module_type}->($module_config, $sess);
+		my $plugin_json_output = $modules_callbacks{$module_type}->('get', $module_config, $sess);
 
 		# Push new data for this thread into the shared variable.
 		{
@@ -99,7 +99,7 @@ sub load_configs {
 	my $user_config_path; 
 
 	foreach my $dir (@CONFIG_DIRS) {
-		$user_config_path = "$dir/.cmonk.yaml";
+		$user_config_path = "$dir/.cmonk";
 		(-e $user_config_path) && last;
 	}
 
@@ -182,6 +182,17 @@ sub cleanup_and_exit {
 	# Now, shut down all threads by sending the KILL signal
 	foreach my $thread_name (keys %running_threads) {
 		$running_threads{$thread_name}->{'handle'}->kill('KILL')->detach();
+
+		# The module type, e.g. zabbix2 or nagios, and session token
+		my $module_type = $running_threads{$thread_name}->{'mod'}->{'type'};
+		my $sess = JSON->new->allow_nonref->decode( $last_data{$thread_name} )->{'session'};
+
+		# Exec the callback function
+		# Send the complete module config and session data
+		my $plugin_json_output = $modules_callbacks{$module_type}->(
+			'logout', $running_threads{$thread_name}->{'mod'}, $sess
+		);
+
 	}
 
 	exit(0);
