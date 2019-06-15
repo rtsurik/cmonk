@@ -1,3 +1,10 @@
+cmonk (20190615-1) unstable; urgency=low
+
+  * Updated zabbix plugin to make it compatible with Zabbix 4.x, code cleanup,
+    etc.
+
+ -- Rustam Tsurik <rustam.tsurik@gmail.com>  Sat, 15 Jun 2019 23:15:12 +0300
+
 cmonk (20170525-1) unstable; urgency=low
 
   * Added on/off switch for modules in the yaml config
