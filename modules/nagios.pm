@@ -92,7 +92,7 @@
                    { 
                      "hostname" => $wrk_host, 
                      "data" => $wrk_serv . ' - ' . $text,
-                     "prio" => $wrk_prio,
+                     "priority" => $wrk_prio,
                      "age" => $wrk_age,
                    }
                  );

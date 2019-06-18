@@ -276,7 +276,7 @@ sub redraw_ui {
 
                 foreach my $host ( @sorted_thread_data ) {
                     # Print the host info.
-                    $cui->print_entry($host->{'hostname'}, $host->{'prio'}, $host->{'age'}, $host->{'data'});
+                    $cui->print_entry($host->{'hostname'}, $host->{'priority'}, $host->{'age'}, $host->{'data'});
                     $count++;
                 }
             }
