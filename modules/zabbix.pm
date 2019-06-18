@@ -247,10 +247,13 @@ sub zabbix_get_data {
         # Zabbix has five levels of priority, we convert them down to three;
         # 5 - disaster; 4 - high; 3 - average; 2 - warning; 1 - info
         my $priority = 'low';
-        switch ( $trigger->{'priority'} ) {
-            case ($_ < 3) { $priority = 'low' }
-            case ($_ == 3) { $priority = 'medium' }
-            case ($_ > 3) { $priority = 'high'}
+
+        if ( $trigger->{'priority'} < 3 ) { 
+            $priority = 'low' 
+        } elsif  ( $trigger->{'priority'} == 3) { 
+            $priority = 'medium' 
+        } elsif ( $trigger->{'priority'} > 3) {
+            $priority = 'high'
         }
 
         # Push the parsed data into the array

@@ -8,8 +8,8 @@ modules:
     api_user: admin
     api_pass: password
     sort_order: name
-    timeout: 30
-    verify_ssl: false
+    refresh: 30
+    verify_ssl: off
 # my nagios
   - name: Nagios
     position: 20
@@ -19,5 +19,5 @@ modules:
     api_user: admin
     api_pass: admin
     sort_order: age
-    timeout: 30
-    verify_ssl: false
+    refresh: 30
+    verify_ssl: off
