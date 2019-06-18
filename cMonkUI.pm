@@ -190,7 +190,7 @@ sub color_ctl {
         "medium" => 4,  # yellow
     );
 
-    my $color_pair = $color_table{$prio};
+    my $color_pair = $color_table{$priority};
 
     switch ($operation) {
         case ('on') { $self->{'window'}->attron(COLOR_PAIR($color_pair)) }

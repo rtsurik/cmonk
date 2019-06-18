@@ -50,7 +50,7 @@ sub do_rpc_call {
     my $client = new JSON::RPC::Legacy::Client;
 
     # Disable SSL verification if requested.
-    if ($ssl_verification eq "false") {
+    if ($ssl_verification eq "off") {
         $client->ua->ssl_opts(
             verify_hostname => 0,
             SSL_verify_mode => 0x00
