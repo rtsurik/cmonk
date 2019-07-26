@@ -21,3 +21,9 @@ modules:
     sort_order: age
     refresh: 30
     verify_ssl: off
+gui:
+    sort_order: age
+    display_columns: [ hostname, age, data ]
+    age_format: short
+    hide_data: ".*SSH.*"
+    hide_hostname: "hosts-to-hide.*"

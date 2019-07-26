@@ -163,7 +163,8 @@ sub load_modules {
             # session => auth/session data for this module
             # status => ok/error
             # errormsg => the message
-            $last_data{$thread_name} = '{"data":null,"session":"","status":"error","errormsg":"Waiting for data..."}'; 
+            $last_data{$thread_name} = 
+            '{"data":null,"session":"","status":"error","errormsg":"Waiting for data..."}'; 
         }
     } 
 
@@ -179,8 +180,12 @@ sub cleanup_and_exit {
     # It's likely that this var is already set to 1, but anyway.
     $do_shutdown = 1;
 
+    print "Logging out of all instances, please wait.\n";
+
     # Now, shut down all threads by sending the KILL signal
     foreach my $thread_name (keys %running_threads) {
+        print "- " . $running_threads{$thread_name}->{'name'};
+
         $running_threads{$thread_name}->{'handle'}->kill('KILL')->detach();
 
         # The module type, e.g. zabbix or nagios, and session token
@@ -193,6 +198,7 @@ sub cleanup_and_exit {
             'logout', $running_threads{$thread_name}->{'mod'}, $sess
         );
 
+        print " [done]\n";
     }
 
     exit(0);
@@ -274,10 +280,31 @@ sub redraw_ui {
                     @sorted_thread_data = sort {$a->{'hostname'} cmp $b->{'hostname'}} @{$thread_data->{'data'}}
                 }
 
-                foreach my $host ( @sorted_thread_data ) {
-                    # Print the host info.
-                    $cui->print_entry($host->{'hostname'}, $host->{'priority'}, $host->{'age'}, $host->{'data'});
-                    $count++;
+                foreach my $entry ( @sorted_thread_data ) {
+                    # Print the entry info
+                    my $skip = 0;
+
+                    if (defined $user_config->{'gui'}->{'hide_data'}) {
+                        if ( $entry->{'data'} =~ $user_config->{'gui'}->{'hide_data'} ) {
+                            $skip = 1;
+                        }
+                    }
+
+                    if (defined $user_config->{'gui'}->{'hide_hostname'}) {
+                        if ( $entry->{'hostname'} =~ $user_config->{'gui'}->{'hide_hostname'} ) {
+                            $skip = 1;
+                        }
+                    }
+
+                    if ($skip == 0){
+                        $cui->print_entry(
+                            $entry->{'hostname'}, 
+                            $entry->{'priority'},
+                            $entry->{'age'}, 
+                            $entry->{'data'}
+                            );
+                        $count++;
+                    }
                 }
             }
             if ($count == 0) {
