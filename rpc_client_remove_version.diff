@@ -1,0 +1,11 @@
+--- /usr/share/perl5/JSON/RPC/Legacy/Client.pm.orig	2024-05-30 09:03:36.299759109 +0000
++++ /usr/share/perl5/JSON/RPC/Legacy/Client.pm	2024-05-30 09:04:06.193529719 +0000
+@@ -121,7 +121,7 @@ sub _post {
+     my ($self, $uri, $obj) = @_;
+     my $json = $self->json;
+
+-    $obj->{version} ||= $self->{version} || '1.1';
++    #$obj->{version} ||= $self->{version} || '1.1';
+
+     if ($obj->{version} eq '1.0') {
+         delete $obj->{version};
